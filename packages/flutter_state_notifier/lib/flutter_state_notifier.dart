@@ -228,42 +228,31 @@ class _StateNotifierProvider<Controller extends StateNotifier<Value>, Value>
   // ignore: prefer_const_constructors_in_immutables
   _StateNotifierProvider({
     Key? key,
-    required this.create,
+    this.create,
+    this.update,
     this.lazy,
     this.builder,
     Widget? child,
-  }) : super(key: key, child: child);
+  })  : assert(create != null || update != null,
+            '`create` and `update` cannot be both `null`'),
+        super(key: key, child: child);
 
-  final Create<Controller> create;
+  final Create<Controller>? create;
+  final Update<Controller>? update;
   final bool? lazy;
   final TransitionBuilder? builder;
 
   @override
   Widget buildWithChild(BuildContext context, Widget? child) {
     return InheritedProvider<Controller>(
-      create: (context) {
-        final result = create(context);
-        assert(
-          result.onError == null,
-          'StateNotifierProvider created a StateNotifier that was already passed'
-          ' to another StateNotifierProvider',
-        );
-        // ignore: avoid_types_on_closure_parameters
-        result.onError = (Object error, StackTrace? stack) {
-          FlutterError.reportError(FlutterErrorDetails(
-            exception: error,
-            stack: stack,
-            library: 'flutter_state_notifier',
-          ));
-        };
-        if (result is LocatorMixin) {
-          (result as LocatorMixin)
-            ..read = _contextToLocator(context)
-            // ignore: invalid_use_of_protected_member
-            ..initState();
-        }
-        return result;
-      },
+      create: create != null
+          ? (context) {
+              final result = create!(context);
+              _addErrorHandler(result);
+              _addLocator(result, context);
+              return result;
+            }
+          : null,
       debugCheckInvalidValueType: kReleaseMode
           ? null
           : (value) {
@@ -274,9 +263,16 @@ class _StateNotifierProvider<Controller extends StateNotifier<Value>, Value>
               );
             },
       update: (context, controller) {
-        if (controller is LocatorMixin) {
+        final result = (update?.call(context, controller) ?? controller)!;
+
+        if (result != controller) {
+          _addErrorHandler(result);
+          _addLocator(result, context);
+        }
+
+        if (result is LocatorMixin) {
           // ignore: cast_nullable_to_non_nullable
-          final locatorMixin = controller as LocatorMixin;
+          final locatorMixin = result as LocatorMixin;
           late Locator debugPreviousLocator;
           assert(() {
             // ignore: invalid_use_of_protected_member
@@ -293,13 +289,14 @@ class _StateNotifierProvider<Controller extends StateNotifier<Value>, Value>
             return true;
           }(), '');
         }
-        return controller!;
+
+        return result;
       },
       dispose: (_, controller) => controller.dispose(),
       child: DeferredInheritedProvider<Controller, Value>(
         lazy: lazy,
-        create: (context) {
-          return Provider.of<Controller>(context, listen: false);
+        update: (context, controller) {
+          return Provider.of<Controller>(context);
         },
         startListening: (context, setState, controller, _) {
           return controller.addListener(setState);
@@ -309,6 +306,31 @@ class _StateNotifierProvider<Controller extends StateNotifier<Value>, Value>
             : child,
       ),
     );
+  }
+
+  void _addLocator(Controller controller, BuildContext context) {
+    if (controller is LocatorMixin) {
+      (controller as LocatorMixin)
+        ..read = _contextToLocator(context)
+        // ignore: invalid_use_of_protected_member
+        ..initState();
+    }
+  }
+
+  void _addErrorHandler(Controller controller) {
+    assert(
+      controller.onError == null,
+      'StateNotifierProvider created a StateNotifier that was already passed'
+      ' to another StateNotifierProvider',
+    );
+    // ignore: avoid_types_on_closure_parameters
+    controller.onError = (Object error, StackTrace? stack) {
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        library: 'flutter_state_notifier',
+      ));
+    };
   }
 
   @override
@@ -339,4 +361,218 @@ class _StateNotifierProviderElement<Controller extends StateNotifier<Value>,
 
     provider.debugFillProperties(properties);
   }
+}
+
+/// {@template provider.statenotifierproxyprovider}
+/// A [StateNotifierProvider] that builds and synchronizes a [Stream]
+/// with external values.
+/// {@endtemplate}
+class StateNotifierProxyProvider0<Controller extends StateNotifier<Value>,
+    Value> extends _StateNotifierProvider<Controller, Value> {
+  /// Initializes [key] for subclasses.
+  StateNotifierProxyProvider0({
+    Key? key,
+    Create<Controller>? create,
+    required Update<Controller> update,
+    bool? lazy,
+    TransitionBuilder? builder,
+    Widget? child,
+  }) : super(
+          key: key,
+          create: create,
+          update: update,
+          lazy: lazy,
+          builder: builder,
+          child: child,
+        );
+}
+
+/// {@macro provider.statenotifierproxyprovider}
+class StateNotifierProxyProvider<T, Controller extends StateNotifier<Value>,
+    Value> extends _StateNotifierProvider<Controller, Value> {
+  /// Initializes [key] for subclasses.
+  StateNotifierProxyProvider({
+    Key? key,
+    Create<Controller>? create,
+    required ProxyProviderBuilder<T, Controller> update,
+    bool? lazy,
+    TransitionBuilder? builder,
+    Widget? child,
+  }) : super(
+          key: key,
+          create: create,
+          update: (context, previous) => update(
+            context,
+            Provider.of(context),
+            previous,
+          ),
+          lazy: lazy,
+          builder: builder,
+          child: child,
+        );
+}
+
+/// {@macro provider.statenotifierproxyprovider}
+class StateNotifierProxyProvider2<
+    T,
+    T2,
+    Controller extends StateNotifier<Value>,
+    Value> extends _StateNotifierProvider<Controller, Value> {
+  /// Initializes [key] for subclasses.
+  StateNotifierProxyProvider2({
+    Key? key,
+    Create<Controller>? create,
+    required ProxyProviderBuilder2<T, T2, Controller> update,
+    bool? lazy,
+    TransitionBuilder? builder,
+    Widget? child,
+  }) : super(
+          key: key,
+          create: create,
+          update: (context, previous) => update(
+            context,
+            Provider.of(context),
+            Provider.of(context),
+            previous,
+          ),
+          lazy: lazy,
+          builder: builder,
+          child: child,
+        );
+}
+
+/// {@macro provider.statenotifierproxyprovider}
+class StateNotifierProxyProvider3<
+    T,
+    T2,
+    T3,
+    Controller extends StateNotifier<Value>,
+    Value> extends _StateNotifierProvider<Controller, Value> {
+  /// Initializes [key] for subclasses.
+  StateNotifierProxyProvider3({
+    Key? key,
+    Create<Controller>? create,
+    required ProxyProviderBuilder3<T, T2, T3, Controller> update,
+    bool? lazy,
+    TransitionBuilder? builder,
+    Widget? child,
+  }) : super(
+          key: key,
+          create: create,
+          update: (context, previous) => update(
+            context,
+            Provider.of(context),
+            Provider.of(context),
+            Provider.of(context),
+            previous,
+          ),
+          lazy: lazy,
+          builder: builder,
+          child: child,
+        );
+}
+
+/// {@macro provider.statenotifierproxyprovider}
+class StateNotifierProxyProvider4<
+    T,
+    T2,
+    T3,
+    T4,
+    Controller extends StateNotifier<Value>,
+    Value> extends _StateNotifierProvider<Controller, Value> {
+  /// Initializes [key] for subclasses.
+  StateNotifierProxyProvider4({
+    Key? key,
+    Create<Controller>? create,
+    required ProxyProviderBuilder4<T, T2, T3, T4, Controller> update,
+    bool? lazy,
+    TransitionBuilder? builder,
+    Widget? child,
+  }) : super(
+          key: key,
+          create: create,
+          update: (context, previous) => update(
+            context,
+            Provider.of(context),
+            Provider.of(context),
+            Provider.of(context),
+            Provider.of(context),
+            previous,
+          ),
+          lazy: lazy,
+          builder: builder,
+          child: child,
+        );
+}
+
+/// {@macro provider.statenotifierproxyprovider}
+class StateNotifierProxyProvider5<
+    T,
+    T2,
+    T3,
+    T4,
+    T5,
+    Controller extends StateNotifier<Value>,
+    Value> extends _StateNotifierProvider<Controller, Value> {
+  /// Initializes [key] for subclasses.
+  StateNotifierProxyProvider5({
+    Key? key,
+    Create<Controller>? create,
+    required ProxyProviderBuilder5<T, T2, T3, T4, T5, Controller> update,
+    bool? lazy,
+    TransitionBuilder? builder,
+    Widget? child,
+  }) : super(
+          key: key,
+          create: create,
+          update: (context, previous) => update(
+            context,
+            Provider.of(context),
+            Provider.of(context),
+            Provider.of(context),
+            Provider.of(context),
+            Provider.of(context),
+            previous,
+          ),
+          lazy: lazy,
+          builder: builder,
+          child: child,
+        );
+}
+
+/// {@macro provider.statenotifierproxyprovider}
+class StateNotifierProxyProvider6<
+    T,
+    T2,
+    T3,
+    T4,
+    T5,
+    T6,
+    Controller extends StateNotifier<Value>,
+    Value> extends _StateNotifierProvider<Controller, Value> {
+  /// Initializes [key] for subclasses.
+  StateNotifierProxyProvider6({
+    Key? key,
+    Create<Controller>? create,
+    required ProxyProviderBuilder6<T, T2, T3, T4, T5, T6, Controller> update,
+    bool? lazy,
+    TransitionBuilder? builder,
+    Widget? child,
+  }) : super(
+          key: key,
+          create: create,
+          update: (context, previous) => update(
+            context,
+            Provider.of(context),
+            Provider.of(context),
+            Provider.of(context),
+            Provider.of(context),
+            Provider.of(context),
+            Provider.of(context),
+            previous,
+          ),
+          lazy: lazy,
+          builder: builder,
+          child: child,
+        );
 }

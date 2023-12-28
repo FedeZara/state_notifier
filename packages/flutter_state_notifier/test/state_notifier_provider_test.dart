@@ -144,7 +144,7 @@ void main() {
   });
   testWidgets("update can't use locator", (tester) async {
     late TestNotifier notifier;
-    final update = Update((locator) {
+    final update = UpdateMock((locator) {
       notifier.read<String>();
     });
     notifier = TestNotifier(0, onUpdate: update);
@@ -166,11 +166,11 @@ void main() {
   testWidgets('plugs update', (tester) async {
     late TestNotifier notifier;
     String? initValue;
-    final initState = InitState(() {
+    final initState = InitStateMock(() {
       initValue = notifier.read<String>();
     });
     String? updateValue;
-    final update = Update((watch) {
+    final update = UpdateMock((watch) {
       updateValue = watch<String>();
     });
     notifier = TestNotifier(0, onUpdate: update, onInitState: initState);
@@ -281,8 +281,10 @@ void main() {
 
     expect(key.currentContext.toString(),
         startsWith('_StateNotifierProvider<TestNotifier, int>'));
-    expect(key.currentContext.toString(),
-        endsWith("(controller: Instance of 'TestNotifier', value: 0)"));
+    expect(
+        key.currentContext.toString(),
+        endsWith(
+            "(dependencies: [_InheritedProviderScope<TestNotifier?>], controller: Instance of 'TestNotifier', value: 0)"));
   });
 
   testWidgets('.value', (tester) async {
@@ -341,6 +343,137 @@ void main() {
           },
         ),
       ),
+    );
+  });
+
+  group('StateNotifierProxyProvider', () {
+    testWidgets(
+      'transitions from notifier to notifier and from state to state',
+      (tester) async {
+        final notifier = TestNotifier(0);
+        final notifier2 = TestNotifier(1);
+        final notifier3 = TestNotifier(0);
+
+        const controller = TextConsumer<TestNotifier>();
+        const value = TextConsumer<int>();
+
+        // First build
+        await tester.pumpWidget(
+          StateNotifierProxyProvider0<TestNotifier, int>(
+            create: (context) => notifier,
+            update: (_, __) => notifier,
+            child: const Column(
+              textDirection: TextDirection.ltr,
+              children: <Widget>[
+                controller,
+                value,
+              ],
+            ),
+          ),
+        );
+
+        expect(find.text('0'), findsOneWidget);
+        expect(buildCountOf(controller), 1);
+        expect(buildCountOf(value), 1);
+
+        // Only value changes
+        notifier.increment();
+        await tester.pump();
+
+        expect(find.text('1'), findsOneWidget);
+        expect(buildCountOf(controller), 1);
+        expect(buildCountOf(value), 2);
+
+        // Only controller changes (same state)
+        await tester.pumpWidget(
+          StateNotifierProxyProvider0<TestNotifier, int>(
+            create: (context) => notifier2,
+            update: (_, __) => notifier2,
+            child: const Column(
+              textDirection: TextDirection.ltr,
+              children: <Widget>[
+                controller,
+                value,
+              ],
+            ),
+          ),
+        );
+
+        expect(find.text('1'), findsOneWidget);
+        expect(buildCountOf(controller), 2);
+        expect(buildCountOf(value), 2);
+
+        // Only value changes (second notifier)
+        notifier2.increment();
+        await tester.pump();
+
+        expect(find.text('2'), findsOneWidget);
+        expect(buildCountOf(controller), 2);
+        expect(buildCountOf(value), 3);
+
+        // Both controller and value change
+        await tester.pumpWidget(
+          StateNotifierProxyProvider0<TestNotifier, int>(
+            create: (context) => notifier3,
+            update: (_, __) => notifier3,
+            child: const Column(
+              textDirection: TextDirection.ltr,
+              children: <Widget>[
+                controller,
+                value,
+              ],
+            ),
+          ),
+        );
+
+        expect(find.text('0'), findsOneWidget);
+        expect(buildCountOf(controller), 3);
+        expect(buildCountOf(value), 4);
+      },
+    );
+
+    testWidgets(
+      'update returning a new notifier disposes the previously'
+      ' created one',
+      (tester) async {
+        final dispose = DisposeMock();
+        final notifier = TestNotifier(0, onDispose: dispose);
+        final notifier2 = TestNotifier(1);
+
+        const controller = TextConsumer<TestNotifier>();
+        const value = TextConsumer<int>();
+
+        await tester.pumpWidget(
+          StateNotifierProxyProvider0<TestNotifier, int>(
+            create: (context) => notifier,
+            update: (_, __) => notifier,
+            child: const Column(
+              textDirection: TextDirection.ltr,
+              children: <Widget>[
+                controller,
+                value,
+              ],
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(
+          StateNotifierProxyProvider0<TestNotifier, int>(
+            create: (context) => notifier2,
+            update: (_, __) => notifier2,
+            child: const Column(
+              textDirection: TextDirection.ltr,
+              children: <Widget>[
+                controller,
+                value,
+              ],
+            ),
+          ),
+        );
+
+        verify(dispose()).called(1);
+        verifyNoMoreInteractions(dispose);
+      },
     );
   });
 }

@@ -6,7 +6,8 @@ import 'package:provider/provider.dart' hide Locator;
 import 'package:state_notifier/state_notifier.dart';
 
 class TestNotifier extends StateNotifier<int> with LocatorMixin {
-  TestNotifier(int state, {this.onInitState, this.onUpdate}) : super(state);
+  TestNotifier(int state, {this.onInitState, this.onUpdate, this.onDispose})
+      : super(state);
 
   int get currentState => state;
 
@@ -16,6 +17,7 @@ class TestNotifier extends StateNotifier<int> with LocatorMixin {
 
   final void Function()? onInitState;
   final void Function(Locator watch)? onUpdate;
+  final void Function()? onDispose;
 
   @override
   // ignore: unnecessary_overrides, remvove protected
@@ -30,14 +32,20 @@ class TestNotifier extends StateNotifier<int> with LocatorMixin {
   void update(T Function<T>() watch) {
     onUpdate?.call(watch);
   }
+
+  @override
+  void dispose() {
+    onDispose?.call();
+    super.dispose();
+  }
 }
 
 class Listener extends Mock {
   void call(int value);
 }
 
-class Update extends Mock {
-  Update([void Function(Locator watch)? cb]) {
+class UpdateMock extends Mock {
+  UpdateMock([void Function(Locator watch)? cb]) {
     if (cb != null) {
       when(call(any)).thenAnswer((realInvocation) {
         final locator = realInvocation.positionalArguments.first as Locator;
@@ -48,8 +56,8 @@ class Update extends Mock {
   void call(Locator? watch);
 }
 
-class InitState extends Mock {
-  InitState([void Function()? cb]) {
+class InitStateMock extends Mock {
+  InitStateMock([void Function()? cb]) {
     if (cb != null) {
       when(call()).thenAnswer((realInvocation) {
         return cb();
@@ -59,7 +67,18 @@ class InitState extends Mock {
   void call();
 }
 
-class ErrorListener extends Mock {
+class DisposeMock extends Mock {
+  DisposeMock([void Function()? cb]) {
+    if (cb != null) {
+      when(call()).thenAnswer((realInvocation) {
+        return cb();
+      });
+    }
+  }
+  void call();
+}
+
+class ErrorListenerMock extends Mock {
   void call(dynamic error, StackTrace stackTrace);
 }
 
