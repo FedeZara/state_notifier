@@ -1,3 +1,9 @@
+## Unreleased major
+
+- Thanks to the update of `DeferredInheritedProvider` to include an update operation, 
+  it was possibile to implement `StateNotifierProxyProvider`s. 
+  These classes act very similar to `ChangeNotifierProxyProvider`s.
+
 ## 1.0.0 - 2023-08-16
 
 - `state` is now accessible in tests without a warning.
