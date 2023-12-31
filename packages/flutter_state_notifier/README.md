@@ -48,6 +48,36 @@ This allows you to both:
 - obtain the [StateNotifier] in the widget tree, by writing `context.read<MyStateNotifier>()`
 - obtain and observe the current [MyState], through `context.watch<MyState>()`
 
+## [StateNotifierProxyProvider]
+
+[StateNotifierProxyProvider] is the equivalent of [ChangeNotifierProxyProvider] but for
+[StateNotifier].
+
+This provider will listen to values coming from other providers and update the [StateNotifier] accordingly.
+
+When possible, it is best practice to only modify the state of the current [StateNotifier] instance during the update operation, and not to return a new instance to avoid loss of the state and unnecessary overhead:
+
+```dart
+StateNotifierProxyProvider<MyModel, MyStateNotifier, MyState>(
+  create: (_) => MyStateNotifier(),
+  update: (_, myModel, myNotifier) => myNotifier
+    ..update(myModel),
+  child: ...
+);
+```
+
+However, returning a new [StateNotifier] instance is possible and the provider will update its descendents correctly and only if needed:
+
+```dart
+StateNotifierProxyProvider<MyModel, MyStateNotifier, MyState>(
+  update: (_, myModel, myNotifier) => MyStateNotifier(myModel),
+  child: ...
+);
+```
+
+[StateNotifierProxyProvider] comes in different variants based on how many values we want to depend on: [StateNotifierProxyProvider0], [StateNotifierProxyProvider], [StateNotifierProxyProvider2], [StateNotifierProxyProvider3], [StateNotifierProxyProvider4], [StateNotifierProxyProvider5], [StateNotifierProxyProvider6].
+
+
 ## [StateNotifierBuilder]
 
 [StateNotifierBuilder] is equivalent to `ValueListenableBuilder` from Flutter.
@@ -80,8 +110,16 @@ return StateNotifierBuilder<MyState>(
 ```
 
 [changenotifierprovider]: https://pub.dev/documentation/provider/latest/provider/ChangeNotifierProvider-class.html
+[changenotifierproxyprovider]: https://pub.dev/documentation/provider/latest/provider/ChangeNotifierProxyProvider-class.html
 [statenotifier]: https://pub.dev/documentation/state_notifier/latest/state_notifier/StateNotifier-class.html
 [statenotifierprovider]: https://pub.dev/documentation/flutter_state_notifier/latest/flutter_state_notifier/StateNotifierProvider-class.html
+[statenotifierproxyprovider0]: https://pub.dev/documentation/flutter_state_notifier/latest/flutter_state_notifier/StateNotifierProxyProvider0-class.html
+[statenotifierproxyprovider]: https://pub.dev/documentation/flutter_state_notifier/latest/flutter_state_notifier/StateNotifierProxyProvider-class.html
+[statenotifierproxyprovider2]: https://pub.dev/documentation/flutter_state_notifier/latest/flutter_state_notifier/StateNotifierProxyProvider2-class.html
+[statenotifierproxyprovider3]: https://pub.dev/documentation/flutter_state_notifier/latest/flutter_state_notifier/StateNotifierProxyProvider3-class.html
+[statenotifierproxyprovider4]: https://pub.dev/documentation/flutter_state_notifier/latest/flutter_state_notifier/StateNotifierProxyProvider4-class.html
+[statenotifierproxyprovider5]: https://pub.dev/documentation/flutter_state_notifier/latest/flutter_state_notifier/StateNotifierProxyProvider5-class.html
+[statenotifierproxyprovider6]: https://pub.dev/documentation/flutter_state_notifier/latest/flutter_state_notifier/StateNotifierProxyProvider6-class.html
 [statenotifierbuilder]: https://pub.dev/documentation/flutter_state_notifier/latest/flutter_state_notifier/StateNotifierBuilder-class.html
 [LocatorMixin]: https://pub.dev/documentation/state_notifier/latest/state_notifier/LocatorMixin-class.html
 [provider]: https://pub.dev/packages/provider

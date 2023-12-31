@@ -364,8 +364,65 @@ class _StateNotifierProviderElement<Controller extends StateNotifier<Value>,
 }
 
 /// {@template provider.statenotifierproxyprovider}
-/// A [StateNotifierProvider] that builds and synchronizes a [Stream]
+/// A [StateNotifierProvider] that builds and synchronizes a [StateNotifier]
 /// with external values.
+///
+/// To understand better this variation of [StateNotifierProvider], we can
+/// look into the following code using the original provider:
+///
+/// ```dart
+/// StateNotifierProvider(
+///   create: (context) {
+///     return MyStateNotifier(
+///       myModel: context.read<MyModel>(),
+///     );
+///   },
+///   child: ...
+/// )
+/// ```
+///
+/// In this example, we built a `MyStateNotifier` from a value coming from
+/// another provider: `MyModel`.
+///
+/// This works as long as `MyModel` never changes. But if it somehow updates,
+/// then our [StateNotifier] will never update accordingly.
+///
+/// To solve this issue, we could instead use this class, like so:
+///
+/// ```dart
+/// StateNotifierProxyProvider<MyModel, MyStateNotifier, MyState>(
+///   create: (_) => MyStateNotifier(),
+///   update: (_, myModel, myNotifier) => myNotifier
+///     ..update(myModel),
+///   child: ...
+/// );
+/// ```
+///
+/// In that situation, if `MyModel` were to update, then `MyStateNotifier` will
+/// be able to update accordingly.
+///
+/// Notice how `MyStateNotifier` doesn't receive `MyModel` in its constructor
+/// anymore. It is now passed through a custom setter/method instead.
+///
+/// A typical implementation of such `MyChangeNotifier` could be:
+///
+/// ```dart
+/// class MyStateNotifier extends StateNotifier<MyState> {
+///   MyStateNotifier() : super(MyState());
+///
+///   void update(MyModel model) {
+///     // Do some custom work based on myModel that may modify the state
+///   }
+/// }
+/// ```
+///
+/// Usually it is best practice to just modify the instance of the state
+/// notifier during the update operation, rather than creating a new instance.
+///
+/// However, it is possible to return a new instance of the state notifier
+/// if needed. In that case, the old state notifier will be disposed and the
+/// new one will be used instead. The class will start listening to the new
+/// one and update the widget tree accordingly.
 /// {@endtemplate}
 class StateNotifierProxyProvider0<Controller extends StateNotifier<Value>,
     Value> extends _StateNotifierProvider<Controller, Value> {
